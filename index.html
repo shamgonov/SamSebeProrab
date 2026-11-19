@@ -1,0 +1,34 @@
+﻿<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Сам себе прораб</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="ui-layer">
+        <div id="crosshair"></div>
+        <div id="action-hint"></div>
+        <div id="info-panel">
+            WASD — ходить | Мышь — осмотреться | E — взаимодействие | ESC — курсор
+            <div id="tools-panel"></div>
+        </div>
+        <div id="status-panel">
+            <div id="stamina-ui">
+                <div id="stamina-bar"><div id="stamina-fill"></div></div>
+                <span id="stamina-text">100/100</span>
+            </div>
+            <div id="trash-ui">Мусор: <span id="trash-count">0/1000</span></div>
+        </div>
+        <div id="hands-panel">
+            <div id="bag-status">Мешок: 0/1000</div>
+            <div id="held-item"></div>
+        </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="js/data.js"></script>
+    <script src="js/renderer.js"></script>
+    <script src="js/game.js"></script>
+</body>
+</html>

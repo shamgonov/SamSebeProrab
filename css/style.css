@@ -1,0 +1,215 @@
+/* ==========================================
+   css/style.css
+   Стили UI: прицел, контекстная подсказка,
+   HUD-панель.
+   ========================================== */
+
+/* Убираем все отступы и скроллы */
+html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #000;
+    font-family: Arial, Helvetica, sans-serif;
+    user-select: none; /* Запрет выделения текста мышью */
+}
+
+/* Canvas на весь экран */
+canvas {
+    display: block;
+}
+
+/* ==========================================
+   UI-слой: лежит поверх canvas,
+   но пропускает клики сквозь себя (pointer-events: none).
+   ========================================== */
+
+#ui-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    /* Ключевое свойство: без него слой перехватил бы клики,
+       и захват курсора (requestPointerLock) не срабатывал бы */
+    pointer-events: none;
+}
+
+/* Прицел — белый кружок 4px строго по центру */
+#crosshair {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 4px;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.85);
+    border-radius: 50%;
+    box-shadow: 0 0 3px rgba(0, 0, 0, 0.9);
+    transform: translate(-50%, -50%);
+}
+
+/* Подсказка действия — под прицелом, появляется только
+   когда Raycaster попал в интерактивный объект */
+#action-hint {
+    position: absolute;
+    /* Прицел в центре (top: 50%), отводим подсказку на 28px вниз,
+       чтобы она не перекрывала сам прицел */
+    top: calc(50% + 28px);
+    left: 50%;
+    transform: translateX(-50%);
+    color: #ffffff;
+    font-size: 15px;
+    font-weight: bold;
+    text-shadow: 0 0 4px #000;
+    background: rgba(0, 0, 0, 0.55);
+    padding: 4px 12px;
+    border-radius: 4px;
+    opacity: 0; /* Скрыта по умолчанию */
+    transition: opacity 0.15s ease;
+    white-space: nowrap;
+}
+
+/* Видимая подсказка: JS ставит класс или меняет opacity напрямую */
+#action-hint.visible {
+    opacity: 1;
+}
+
+/* Информационная панель в левом верхнем углу */
+#info-panel {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    color: #aaaaaa;
+    font-size: 13px;
+    line-height: 1.5;
+    background: rgba(0, 0, 0, 0.35);
+    padding: 6px 10px;
+    border-radius: 4px;
+}
+
+/* ==========================================
+   Список инструментов в info-panel.
+   Текст формирует game.js, здесь только оформление.
+   ========================================== */
+#tools-panel {
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    font-size: 13px;
+}
+
+/* Активный инструмент — яркий, остальные приглушены */
+#tools-panel .tool-active {
+    color: #ffd54f;
+    font-weight: bold;
+}
+
+#tools-panel .tool-inactive {
+    color: #777777;
+}
+
+/* ==========================================
+   Панель состояния: стамина и мусор.
+   Слева снизу, над землёй, не мешает обзору.
+   ========================================== */
+#status-panel {
+    position: absolute;
+    bottom: 24px;
+    left: 16px;
+    color: #ffffff;
+    font-size: 14px;
+    background: rgba(0, 0, 0, 0.45);
+    padding: 8px 12px;
+    border-radius: 4px;
+}
+
+#stamina-ui {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Контейнер полоски — фиксированная ширина, фон «пустой» шкалы */
+#stamina-bar {
+    width: 140px;
+    height: 12px;
+    background: rgba(255, 255, 255, 0.18);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+/* Заполнение: ширина меняется из game.js, цвет тоже */
+#stamina-fill {
+    width: 100%;
+    height: 100%;
+    background: #4caf50;
+    border-radius: 6px;
+    transition: width 0.15s linear;
+}
+
+#stamina-text {
+    font-size: 13px;
+    color: #cccccc;
+}
+
+#trash-ui {
+    margin-top: 6px;
+    color: #dddddd;
+}
+
+/* ==========================================
+   Индикаторы в правом нижнем углу:
+   статус мешка и предметы в руках.
+   ========================================== */
+
+#hands-panel {
+    position: absolute;
+    bottom: 24px;
+    right: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+}
+
+#bag-status {
+    color: #ffffff;
+    font-size: 15px;
+    font-weight: bold;
+    background: rgba(0, 0, 0, 0.55);
+    padding: 6px 14px;
+    border-radius: 4px;
+    white-space: nowrap;
+}
+
+/* Полный мешок — красным, чтобы сразу бросалось в глаза */
+#bag-status.bag-full {
+    color: #ff4444;
+    font-weight: bold;
+}
+
+/* ==========================================
+   Индикатор предмета в руках.
+   Скрыт, пока руки пусты.
+   ========================================== */
+
+#held-item {
+    color: #ffffff;
+    font-size: 15px;
+    font-weight: bold;
+    background: rgba(0, 0, 0, 0.55);
+    padding: 8px 14px;
+    border-radius: 4px;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    /* Три строки: правая, левая, совок */
+    white-space: pre-line;
+    line-height: 1.5;
+    text-align: left;
+}
+
+#held-item.visible {
+    opacity: 1;
+}
