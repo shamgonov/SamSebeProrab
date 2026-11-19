@@ -1,4 +1,4 @@
-﻿/* ==========================================
+/* ==========================================
    js/game.js
    Ð˜Ð³Ñ€Ð¾Ð²Ð°Ñ Ð»Ð¾Ð³Ð¸ÐºÐ°: Ð´Ð²Ð¸Ð¶ÐµÐ½Ð¸Ðµ, Ð¾Ð±Ð·Ð¾Ñ€ Ð¼Ñ‹ÑˆÑŒÑŽ,
    ÐºÐ¾Ð»Ð»Ð¸Ð·Ð¸Ð¸ Ð¸ ÑÐ¸ÑÑ‚ÐµÐ¼Ð° Ð²Ð·Ð°Ð¸Ð¼Ð¾Ð´ÐµÐ¹ÑÑ‚Ð²Ð¸Ñ (Raycaster).
@@ -1537,41 +1537,7 @@
      * Ð¡Ñ‚Ð°Ñ€Ñ‚. renderer.js ÑƒÐ¶Ðµ Ð²Ñ‹Ð¿Ð¾Ð»Ð½Ð¸Ð» ÑÐ²Ð¾Ð¹ init Ð¿Ñ€Ð¸ Ð·Ð°Ð³Ñ€ÑƒÐ·ÐºÐµ,
      * Ð¿Ð¾ÑÑ‚Ð¾Ð¼Ñƒ ÑÑ†ÐµÐ½Ð° Ð¸ ÐºÐ°Ð¼ÐµÑ€Ð° Ð³Ð¾Ñ‚Ð¾Ð²Ñ‹.
      */
-    /**
- * Зарядить валик из ведра: вода/грунтовка/клей.
- */
-chargeRollerFromBucket: function (bucket) {
-    var data = window.GameData;
-    var ud = bucket.userData;
-    if (!ud.content || ud.volumeUsed <= 0) {
-        this.showHintText("Ведро пустое");
-        return;
-    }
-    if (data.rightHand !== 'roller' && data.leftHand !== 'roller') {
-        this.showHintText("Возьми валик в руку");
-        return;
-    }
-    data.rollerState = ud.content;
-    ud.volumeUsed = Math.max(0, ud.volumeUsed - 0.5);
-    this.showHintText("Валик заряжен: " + ud.content);
-    data.addHistory("Валик заряжен из ведра: " + ud.content);
-},
-/**
- * Замер стены рулеткой: показывает расстояние до стены под прицелом.
- */
-measureWall: function () {
-    if (!this.lastHit) {
-        this.showHintText("Наведи на стену");
-        return;
-    }
-    var dist = this.lastHit.distance.toFixed(2);
-    this.showHintText("Расстояние до стены: " + dist + " м");
-    window.GameData.addHistory("Замер рулеткой: " + dist + " м");
-},
+
 window.GameLogic.init();
 
 })();
-
-
-
-
