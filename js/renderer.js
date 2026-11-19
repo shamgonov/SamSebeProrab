@@ -492,8 +492,8 @@
                 // Чем наполнено: 'water' | 'primer' | 'glue'
                 content: null,
                 isHeld: false,
-                isFlat: true,
-                restY: 0.05
+                isFlat: false,
+                restY: 0.15
             });
 
             // ==========================================
