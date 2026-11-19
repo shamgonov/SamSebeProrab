@@ -1483,7 +1483,42 @@
             this.interactableObjects.push(cube);
         },
 
-        /** Кадр отрисовки. */
+        /**
+      * Переносимые материалы (рулоны, канистры) следуют за камерой,
+      * когда игрок держит их в руках.
+      */
+     updateCarriedMaterials: function () {
+         var data = window.GameData;
+         var cam = this.camera;
+         
+         // Проверяем правую и левую руку
+         ['right', 'left'].forEach(function (side) {
+             var handItem = data[side + 'Hand'];
+             if (!handItem) return;
+             
+             // Ищем объект в сцене
+             for (var i = 0; i < this.interactableObjects.length; i++) {
+                 var obj = this.interactableObjects[i];
+                 if (obj.userData && obj.userData.type === handItem && obj.userData.isCarried) {
+                     // Позиция перед камерой
+                     var forward = new THREE.Vector3();
+                     cam.getWorldDirection(forward);
+                     var right = new THREE.Vector3();
+                     right.crossVectors(forward, cam.up).normalize();
+                     
+                     var offset = side === 'right' ? 0.35 : -0.35;
+                     obj.position.copy(cam.position)
+                         .addScaledVector(forward, 0.75)
+                         .addScaledVector(right, offset);
+                     obj.position.y -= 0.4;
+                     
+                     // Медленное вращение для читаемости
+                     obj.rotation.y += 0.01;
+                 }
+             }
+         }.bind(this));
+     },
+     /** Кадр отрисовки. */
         render: function () {
             this.renderer.render(this.scene, this.camera);
         },

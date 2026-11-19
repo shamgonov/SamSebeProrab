@@ -1,172 +1,52 @@
 /* ==========================================
-   js/data.js
-   Глобальное состояние игры (GameState).
-   Здесь хранятся ТОЛЬКО данные — без логики отрисовки.
-   Графика (renderer.js) и логика (game.js)
-   обращаются к этому объекту для чтения/записи.
-   ========================================== */
-
+js/data.js
+Глобальное состояние игры (GameState).
+========================================== */
 (function () {
     "use strict";
-
     window.GameData = {
-        // ==========================================
-        // Параметры мира
-        // ==========================================
-        world: {
-            roomWidth: 5,    // по оси X
-            roomHeight: 3,   // по оси Y
-            roomDepth: 4     // по оси Z
-        },
-
-        // ==========================================
-        // Состояние игрока
-        // ==========================================
-        player: {
-            position: {
-                x: 0,
-                y: 1.7,
-                z: 1.5
-            },
-            speed: 4.0  // метров в секунду
-        },
-
-        // ==========================================
-        // Состояние интерфейса
-        // ==========================================
-        ui: {
-            currentHint: "",  // Текст подсказки: "E: Тестовый куб"
-            hintVisible: false
-        },
-
-        // ==========================================
-        // Инвентарь (заготовка)
-        // ==========================================
+        world: { roomWidth: 5, roomHeight: 3, roomDepth: 4 },
+        player: { position: { x: 0, y: 1.7, z: 1.5 }, speed: 4.0 },
+        ui: { currentHint: "", hintVisible: false },
         inventory: [],
-
-        // ==========================================
-        // Стамина (выносливость)
-        // Тратится при работе, восстанавливается в покое.
-        // При 0% действие блокируется.
-        // ==========================================
-        stamina: 100,
-        maxStamina: 100,
-
-        // ==========================================
-        // Мусор
-        // trashCount — сколько кусков на полу, maxTrash — вместимость мешка.
-        // ==========================================
-        trashCount: 0,
-        // Обои — лёгкий мусор: мешок вмещает много кусков
-        maxTrash: 1000,
-
-        // ==========================================
-        // Физический мешок
-        // Координаты мешка в мире. null = мешок в руках игрока.
-        // ==========================================
+        stamina: 100, maxStamina: 100,
+        trashCount: 0, maxTrash: 1000,
         trashBagPosition: null,
-
-        // ==========================================
-        // Руки игрока (физическая модель)
-        // В каждой руке лежит ИМЯ предмета или null, если рука пуста.
-        // Инструменты больше не «выбираются» клавишами: их берут с пола.
-        // ==========================================
-        rightHand: null,
-        leftHand: null,
-
-        // ==========================================
-        // Наполненность совка (левая рука)
-        // ==========================================
-        dustpanFill: 0,
-        dustpanMax: 50,
-
-        // ==========================================
-        // Состояние валика: чем он заряжен
-        // null | 'water' (мокрая стена) | 'primer' (грунтовка) | 'glue' (клей)
-        // Заряжается, когда валик опускают в ведро с содержимым.
-        // ==========================================
+        rightHand: null, leftHand: null,
+        dustpanFill: 0, dustpanMax: 50,
         rollerState: null,
-
-        /**
-         * Положить предмет в руку: сначала предпочитаемая,
-         * затем вторая, если предпочитаемая занята.
-         * @param {string} itemName — имя предмета (ключ из tools)
-         * @param {string} [preferredSide] — 'right' | 'left', желаемая рука
-         * @returns {string|null} 'right' | 'left' | null, если обе заняты
-         */
+        toolWetUntil: 0,
+        rustLevel: 0,
+        
+        // ==========================================
+        // Остатки материалов
+        // ==========================================
+        wallpaperRollMeters: 10, // погонных метров в рулоне
+        glueLiters: 5,           // литров в канистре клея
+        primerLiters: 5,         // литров в канистре грунтовки
+        
         giveItemToHand: function (itemName, preferredSide) {
             var first = preferredSide === 'left' ? 'left' : 'right';
             var second = first === 'right' ? 'left' : 'right';
-
-            // Поля называются rightHand/leftHand, а не right/left:
-            // обращение this['right'] дало бы undefined, сравнение с null
-            // не сработало бы — и предмет «не брался» бы никогда.
-            if (this[first + 'Hand'] === null) {
-                this[first + 'Hand'] = itemName;
-                return first;
-            }
-            if (this[second + 'Hand'] === null) {
-                this[second + 'Hand'] = itemName;
-                return second;
-            }
+            if (this[first + 'Hand'] === null) { this[first + 'Hand'] = itemName; return first; }
+            if (this[second + 'Hand'] === null) { this[second + 'Hand'] = itemName; return second; }
             return null;
         },
-
-        /**
-         * Освободить руку.
-         * @param {string} side — 'right' | 'left'
-         */
         freeHand: function (side) {
-            if (side === 'right') {
-                this.rightHand = null;
-            } else if (side === 'left') {
-                this.leftHand = null;
-            }
+            if (side === 'right') this.rightHand = null;
+            else if (side === 'left') this.leftHand = null;
         },
-
-        /**
-         * В какой руке лежит предмет.
-         * @param {string} itemName
-         * @returns {string|null} 'right' | 'left' | null
-         */
         handWith: function (itemName) {
             if (this.rightHand === itemName) return 'right';
             if (this.leftHand === itemName) return 'left';
             return null;
         },
-
-        // ==========================================
-        // Активный инструмент (устаревшее поле)
-        // Оставлено для совместимости: теперь активный инструмент
-        // определяется содержимым правой руки, см. getTool() в game.js.
-        // ==========================================
         currentTool: 'scraper',
-
-        /**
-         * Сменить активный инструмент.
-         * @param {string} toolName — ключ из таблицы инструментов game.js
-         */
-        switchTool: function (toolName) {
-            this.currentTool = toolName;
-            console.log("[DATA] Инструмент изменён на:", toolName);
-        },
-
-        // ==========================================
-        // Лог действий (для отладки и сохранений)
-        // ==========================================
+        switchTool: function (toolName) { this.currentTool = toolName; },
         history: [],
-
-        /**
-         * Записать событие в историю.
-         * @param {string} action — описание события
-         */
         addHistory: function (action) {
-            this.history.push({
-                time: Date.now(),
-                action: action
-            });
+            this.history.push({ time: Date.now(), action: action });
             console.log("[DATA]", action);
         }
     };
-
 })();

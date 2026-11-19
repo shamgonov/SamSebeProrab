@@ -1,30 +1,18 @@
 /* ==========================================
 js/game.js
-Игровая логика: движение, обзор мышью,
-коллизии и система взаимодействия (Raycaster).
+Игровая логика: движение, обзор, коллизии, взаимодействие.
 ========================================== */
 (function () {
     "use strict";
     window.GameLogic = {
         keys: { w: false, a: false, s: false, d: false },
-        isLocked: false,
-        sweeping: false,
-        broomCooldown: 0,
-        dustpanCooldown: 0,
-        yaw: 0,
-        pitch: 0,
-        pitchLimit: Math.PI / 2 - 0.05,
-        mouseSensitivity: 0.002,
-        playerRadius: 0.35,
-        preferredHand: 'right',
-        raycaster: null,
-        rayCenter: null,
-        lastHit: null,
-        interactDistance: 2.5,
-        rayFar: 6,
+        isLocked: false, sweeping: false, broomCooldown: 0, dustpanCooldown: 0,
+        yaw: 0, pitch: 0, pitchLimit: Math.PI / 2 - 0.05, mouseSensitivity: 0.002,
+        playerRadius: 0.35, preferredHand: 'right',
+        raycaster: null, rayCenter: null, lastHit: null, interactDistance: 2.5, rayFar: 6,
         tools: {
             scraper: { hotkey: '1', label: 'Скребок', speed: 1.0, staminaCost: 5, actions: { wallpaper: function (obj, hit) { var passes = obj.userData.wet ? 3 : 1; for (var i = 0; i < passes; i++) { window.GameRenderer.tearWallpaper(obj, hit.point, hit.uv); } if (obj.userData.wet) window.GameData.addHistory("Мокрые обои сошли быстрее"); } }, hints: { wallpaper: 'E - Оторвать' } },
-            roller: { hotkey: '2', label: 'Валик', speed: 1.0, staminaCost: 2, actions: { wallpaper: function (obj, hit) { var data = window.GameData; if (data.rollerState === 'water') { obj.userData.wet = true; window.GameData.addHistory("Обои размочены валиком"); return; } if (data.rollerState === 'primer') { window.GameRenderer.primerWall(obj, hit.point, hit.uv); return; } if (data.rollerState === 'glue') { window.GameRenderer.glueWall(obj, hit.point, hit.uv); return; } window.GameRenderer.paintWall(obj, hit.point, hit.uv); } }, hints: { wallpaper: 'E - Покрасить' } },
+            roller: { hotkey: '2', label: 'Валик', speed: 1.0, staminaCost: 2, actions: { wallpaper: function (obj, hit) { var data = window.GameData; if (!data.rollerState) { window.GameData.ui.currentHint = "Валик сухой! Смочи его в ведре или умывальнике (E)"; window.GameData.ui.hintVisible = true; window.GameLogic.renderHint(); return; } if (data.rollerState === 'water') { obj.userData.wet = true; data.toolWetUntil = Math.max(Date.now(), data.toolWetUntil - 2000); window.GameData.addHistory("Обои размочены валиком"); return; } if (data.rollerState === 'primer') { data.toolWetUntil = Math.max(Date.now(), data.toolWetUntil - 2000); window.GameRenderer.primerWall(obj, hit.point, hit.uv); return; } if (data.rollerState === 'glue') { data.toolWetUntil = Math.max(Date.now(), data.toolWetUntil - 2000); window.GameRenderer.glueWall(obj, hit.point, hit.uv); return; } } }, hints: { wallpaper: 'E - Работать' } },
             hands: { hotkey: '3', label: 'Руки', icon: '✋', speed: 1.0, staminaCost: 10, actions: { wallpaper: function (obj, hit) { window.GameRenderer.tearWallpaper(obj, hit.point, hit.uv); } }, hints: { wallpaper: 'E - Отрывать руками' } },
             broom: { hotkey: '4', label: 'Веник', icon: '🧹', speed: 1.0, staminaCost: 1, actions: {}, hints: {} },
             dustpan: { hotkey: '5', label: 'Совок', icon: '🥄', speed: 1.0, staminaCost: 2, actions: {}, hints: {} },
@@ -35,53 +23,30 @@ js/game.js
             glue_can: { label: 'Клей', icon: '🟡', speed: 1.0, staminaCost: 0, actions: {}, hints: {} },
             tape_measure: { label: 'Рулетка', icon: '📏', speed: 1.0, staminaCost: 0, actions: {}, hints: {} }
         },
-        staminaMinToWork: 10,
-        staminaRegenPerSec: 12,
-        lastRenderedStamina: 100,
-        toolsPanelEl: null,
-        staminaFillEl: null,
-        staminaTextEl: null,
-        trashEl: null,
-        bagStatusEl: null,
-        hintEl: null,
+        staminaMinToWork: 10, staminaRegenPerSec: 12, lastRenderedStamina: 100,
+        toolsPanelEl: null, staminaFillEl: null, staminaTextEl: null, trashEl: null, bagStatusEl: null, hintEl: null,
 
         init: function () {
-            this.raycaster = new THREE.Raycaster();
-            this.raycaster.far = this.rayFar;
-            this.rayCenter = new THREE.Vector2(0, 0);
-            this.hintEl = document.getElementById('action-hint');
-            this.toolsPanelEl = document.getElementById('tools-panel');
-            this.staminaFillEl = document.getElementById('stamina-fill');
-            this.staminaTextEl = document.getElementById('stamina-text');
-            this.trashEl = document.getElementById('trash-count');
-            this.bagStatusEl = document.getElementById('bag-status');
-            this.updateHandsUI();
-            this.renderStamina();
-            this.renderTrash();
-            this.setupInput();
-            this.loop();
+            this.raycaster = new THREE.Raycaster(); this.raycaster.far = this.rayFar; this.rayCenter = new THREE.Vector2(0, 0);
+            this.hintEl = document.getElementById('action-hint'); this.toolsPanelEl = document.getElementById('tools-panel');
+            this.staminaFillEl = document.getElementById('stamina-fill'); this.staminaTextEl = document.getElementById('stamina-text');
+            this.trashEl = document.getElementById('trash-count'); this.bagStatusEl = document.getElementById('bag-status');
+            this.updateHandsUI(); this.renderStamina(); this.renderTrash(); this.setupInput(); this.loop();
         },
 
         setupInput: function () {
             var self = this;
             document.addEventListener('keydown', function (e) {
                 switch (e.code) {
-                    case 'KeyW': self.keys.w = true; break;
-                    case 'KeyA': self.keys.a = true; break;
-                    case 'KeyS': self.keys.s = true; break;
-                    case 'KeyD': self.keys.d = true; break;
-                    case 'KeyE': self.handleInteraction(); break;
-                    case 'KeyQ': self.dropFromHands(); break;
+                    case 'KeyW': self.keys.w = true; break; case 'KeyA': self.keys.a = true; break;
+                    case 'KeyS': self.keys.s = true; break; case 'KeyD': self.keys.d = true; break;
+                    case 'KeyE': self.handleInteraction(); break; case 'KeyQ': self.dropFromHands(); break;
                     case 'Tab': e.preventDefault(); self.togglePreferredHand(); break;
+                    case 'KeyR': self.quickChargeTool(); break;
                 }
             });
             document.addEventListener('keyup', function (e) {
-                switch (e.code) {
-                    case 'KeyW': self.keys.w = false; break;
-                    case 'KeyA': self.keys.a = false; break;
-                    case 'KeyS': self.keys.s = false; break;
-                    case 'KeyD': self.keys.d = false; break;
-                }
+                switch (e.code) { case 'KeyW': self.keys.w = false; break; case 'KeyA': self.keys.a = false; break; case 'KeyS': self.keys.s = false; break; case 'KeyD': self.keys.d = false; break; }
             });
             var canvas = window.GameRenderer.renderer.domElement;
             document.addEventListener('click', function () { if (!self.isLocked) canvas.requestPointerLock(); });
@@ -90,8 +55,7 @@ js/game.js
             document.addEventListener('pointerlockchange', function () { self.isLocked = (document.pointerLockElement === canvas); });
             document.addEventListener('mousemove', function (e) {
                 if (!self.isLocked) return;
-                self.yaw -= e.movementX * self.mouseSensitivity;
-                self.pitch -= e.movementY * self.mouseSensitivity;
+                self.yaw -= e.movementX * self.mouseSensitivity; self.pitch -= e.movementY * self.mouseSensitivity;
                 self.pitch = Math.max(-self.pitchLimit, Math.min(self.pitchLimit, self.pitch));
             });
         },
@@ -103,14 +67,32 @@ js/game.js
         getLeftTool: function () { var name = window.GameData.leftHand; return name ? (this.tools[name] || null) : null; },
 
         buildHint: function (userData) {
-            var tool = this.getTool();
-            var data = window.GameData;
+            var tool = this.getTool(); var data = window.GameData;
             var hasDustpan = (data.leftHand === 'dustpan' || data.rightHand === 'dustpan');
 
-            // УМЫВАЛЬНИК: если в руке ведро, предлагаем наполнить
-            if (userData.type === 'sink') {
-                if (data.handWith('bucket')) return "E - Наполнить ведро";
-                return "E: " + userData.name;
+            // === ПЕРЕНОСИМЫЕ МАТЕРИАЛЫ ===
+            if (userData.type === 'wallpaper_roll') {
+                if (userData.isCarried) return "E - Поставить рулон";
+                return "E - Взять рулон обоев (" + data.wallpaperRollMeters + " м)";
+            }
+            if (userData.type === 'glue_can') {
+                if (userData.isCarried) return "E - Поставить канистру";
+                return "E - Взять клей (" + data.glueLiters + " л)";
+            }
+            if (userData.type === 'primer_can') {
+                if (userData.isCarried) return "E - Поставить канистру";
+                return "E - Взять грунтовку (" + data.primerLiters + " л)";
+            }
+
+            if (userData.type === 'bucket') {
+                var ud = userData;
+                var contentName = ud.content === 'water' ? 'вода' : (ud.content === 'primer' ? 'грунтовка' : (ud.content === 'glue' ? 'клей' : 'пустое'));
+                var displayName = "Ведро (" + contentName + " " + ud.volumeUsed + "/" + ud.volume + " л)";
+                var rightTool = data.rightHand;
+                if (rightTool === 'roller' || rightTool === 'knife' || rightTool === 'scraper') {
+                    return "E - Смочить " + rightTool + " (" + contentName + ")";
+                }
+                return "E: " + displayName;
             }
 
             if (userData.type === 'tool' && !userData.isHeld) {
@@ -132,10 +114,7 @@ js/game.js
                 return "E - Взять мешок";
             }
             if (userData.isDebris) {
-                if (hasDustpan) {
-                    if (data.dustpanFill >= data.dustpanMax) return "Совок полон, вытряхни в мешок";
-                    return "Зажми ЛКМ — собрать в совок";
-                }
+                if (hasDustpan) { if (data.dustpanFill >= data.dustpanMax) return "Совок полон, вытряхни в мешок"; return "Зажми ЛКМ — собрать в совок"; }
                 if (data.handWith('broom')) return "Зажми ЛКМ — смести кучу";
                 if (data.trashCount >= data.maxTrash) return "Мешок полон — вынеси к выходу";
                 return "E — подобрать рукой";
@@ -154,59 +133,94 @@ js/game.js
         handleInteraction: function () {
             var data = window.GameData;
             if (!this.lastHit) return;
-            if (this.lastHit.distance > this.interactDistance) {
-                window.GameData.ui.currentHint = "Подойди ближе";
-                window.GameData.ui.hintVisible = true;
-                this.renderHint();
+            if (this.lastHit.distance > this.interactDistance) { window.GameData.ui.currentHint = "Подойди ближе"; window.GameData.ui.hintVisible = true; this.renderHint(); return; }
+            var obj = this.lastHit.object; obj = this.resolveInteractable(obj);
+            var userData = obj.userData || {}; var tool = this.getTool();
+
+            // === ПЕРЕНОСИМЫЕ МАТЕРИАЛЫ ===
+            if (userData.type === 'wallpaper_roll' || userData.type === 'glue_can' || userData.type === 'primer_can') {
+                if (userData.isCarried) { this.dropMaterial(obj); return; }
+                this.pickUpMaterial(obj);
                 return;
             }
-            var obj = this.lastHit.object;
-            obj = this.resolveInteractable(obj);
-            var userData = obj.userData || {};
-            var tool = this.getTool();
 
             if (!userData.isHeld && userData.toolName) { this.takeToolToHand(obj, userData); return; }
+            
+            if (userData.type === 'bucket') {
+                var ud = userData;
+                if (!ud.content || ud.volumeUsed <= 0) { this.showHintText("Ведро пустое"); return; }
+                var rightTool = data.rightHand;
+                if (rightTool === 'roller' || rightTool === 'knife' || rightTool === 'scraper') {
+                    this.wetTool(rightTool, ud.content, ud);
+                    return;
+                }
+                this.showHintText("Этот инструмент нельзя смочить");
+                return;
+            }
+
+            if (userData.type === 'sink') {
+                if (data.handWith('bucket')) { this.fillBucketAtSink(obj); }
+                else {
+                    var rightTool = data.rightHand;
+                    if (rightTool === 'roller' || rightTool === 'knife' || rightTool === 'scraper') {
+                        this.wetTool(rightTool, 'water', null);
+                        return;
+                    }
+                    this.showHintText("Возьми ведро или инструмент в правую руку");
+                }
+                return;
+            }
+
             if (userData.type === 'trashBag') {
                 var hasDustpan = (data.leftHand === 'dustpan' || data.rightHand === 'dustpan');
                 if (hasDustpan && data.dustpanFill > 0) { this.emptyDustpanIntoBag(); return; }
-                if (!userData.isCarried) { this.pickUpBag(); }
-                else { if (this.isNearExit() && data.trashCount > 0) this.emptyBagAtExit(); this.dropBagHere(); }
+                if (!userData.isCarried) { this.pickUpBag(); } else { if (this.isNearExit() && data.trashCount > 0) this.emptyBagAtExit(); this.dropBagHere(); }
                 return;
             }
-            if (userData.type === 'sink') { this.fillBucketAtSink(obj); return; }
             if (userData.type === 'primer_can' || userData.type === 'glue_can') { this.pourCanisterIntoBucket(obj, userData); return; }
             if (userData.type === 'wallpaper_roll') { this.cutWallpaperPiece(obj); return; }
-            if (this.isCarryingBag()) {
-                window.GameData.ui.currentHint = "Сначала поставь мешок";
-                window.GameData.ui.hintVisible = true;
-                this.renderHint();
-                return;
-            }
+            if (this.isCarryingBag()) { window.GameData.ui.currentHint = "Сначала поставь мешок"; window.GameData.ui.hintVisible = true; this.renderHint(); return; }
+            
             if (userData.isDebris) {
                 if (data.handWith('dustpan')) { window.GameData.ui.currentHint = "Зажми ЛКМ — собрать в совок"; window.GameData.ui.hintVisible = true; this.renderHint(); return; }
                 if (data.handWith('broom')) { window.GameData.ui.currentHint = "Зажми ЛКМ — смести кучу"; window.GameData.ui.hintVisible = true; this.renderHint(); return; }
                 if (data.trashCount >= data.maxTrash) { window.GameData.ui.currentHint = "Мешок полон — вынеси мусор!"; window.GameData.ui.hintVisible = true; this.renderHint(); return; }
-                this.removeDebris(obj);
-                data.trashCount++;
-                data.addHistory("Подобран мусор. Мешок: " + data.trashCount + "/" + data.maxTrash);
-                this.renderTrash();
-                return;
+                this.removeDebris(obj); data.trashCount++; data.addHistory("Подобран мусор. Мешок: " + data.trashCount + "/" + data.maxTrash); this.renderTrash(); return;
             }
             if (userData.type === 'exit') {
-                if (data.trashCount > 0) {
-                    window.GameData.ui.currentHint = "Мусор вынесен!"; window.GameData.ui.hintVisible = true; this.renderHint();
-                    data.trashCount = 0; data.addHistory("Мусор вынесен к выходу"); this.renderTrash();
-                }
+                if (data.trashCount > 0) { window.GameData.ui.currentHint = "Мусор вынесен!"; window.GameData.ui.hintVisible = true; this.renderHint(); data.trashCount = 0; data.addHistory("Мусор вынесен к выходу"); this.renderTrash(); }
                 return;
             }
             if (tool && userData.type && tool.actions && tool.actions[userData.type]) {
                 if (data.stamina < this.staminaMinToWork) { window.GameData.ui.currentHint = "Нет сил! Отдохни"; window.GameData.ui.hintVisible = true; this.renderHint(); return; }
-                data.stamina = Math.max(0, data.stamina - (tool.staminaCost || 0));
-                this.renderStamina();
-                tool.actions[userData.type](obj, this.lastHit);
-                return;
+                data.stamina = Math.max(0, data.stamina - (tool.staminaCost || 0)); this.renderStamina();
+                tool.actions[userData.type](obj, this.lastHit); return;
             }
             if (typeof userData.interact === 'function') obj.userData.interact(obj, this.lastHit);
+        },
+
+        // === ПЕРЕНОС МАТЕРИАЛОВ ===
+        pickUpMaterial: function (obj) {
+            var data = window.GameData;
+            var side = data.giveItemToHand(obj.userData.type);
+            if (!side) { window.GameData.ui.currentHint = "Руки заняты, сначала освободи"; window.GameData.ui.hintVisible = true; this.renderHint(); return; }
+            obj.userData.isCarried = true;
+            obj.userData.carriedSide = side;
+            this.removeFromInteractables(obj);
+            data.addHistory("Взято: " + obj.userData.name);
+            this.updateHandsUI();
+        },
+
+        dropMaterial: function (obj) {
+            if (obj.userData.carriedSide) { window.GameData.freeHand(obj.userData.carriedSide); obj.userData.carriedSide = null; }
+            var cam = window.GameRenderer.camera;
+            var forward = new THREE.Vector3(); cam.getWorldDirection(forward);
+            obj.position.copy(cam.position).addScaledVector(forward, 1.5);
+            obj.position.y = 0.15;
+            obj.userData.isCarried = false;
+            if (this.interactableObjects.indexOf(obj) === -1) this.interactableObjects.push(obj);
+            window.GameData.addHistory("Поставлено: " + obj.userData.name);
+            this.updateHandsUI();
         },
 
         takeToolToHand: function (obj, userData) {
@@ -225,40 +239,58 @@ js/game.js
             if (!side) return;
             var mesh = window.GameRenderer.detachToolToGround(side);
             if (!mesh) { data.freeHand(side); this.renderHeldItems(); return; }
-            data.freeHand(side);
-            data.addHistory("Положено на пол: " + mesh.userData.name);
+            data.freeHand(side); data.addHistory("Положено на пол: " + mesh.userData.name); this.renderHeldItems();
+        },
+
+        wetTool: function(toolName, content, bucketUd) {
+            var data = window.GameData;
+            var dryTime = content === 'water' ? 30000 : 60000;
+            data.toolWetUntil = Date.now() + dryTime;
+            if (toolName === 'roller') data.rollerState = content;
+            if (bucketUd) {
+                bucketUd.volumeUsed = Math.max(0, bucketUd.volumeUsed - 0.5);
+                if (bucketUd.volumeUsed <= 0) bucketUd.content = null;
+            }
+            var contentName = content === 'water' ? 'водой' : (content === 'primer' ? 'грунтовкой' : 'клеем');
+            this.showHintText("Инструмент смочен " + contentName);
+            data.addHistory("Инструмент смочен: " + content);
             this.renderHeldItems();
         },
 
-        fillBucketAtSink: function (sink) {
+        quickChargeTool: function() {
             var data = window.GameData;
-            var bucket = this.getBucketMesh();
+            var rightTool = data.rightHand;
+            var leftTool = data.leftHand;
+            if ((rightTool === 'roller' || rightTool === 'knife' || rightTool === 'scraper') && leftTool === 'bucket') {
+                var bucketMesh = window.GameRenderer.heldToolMeshes['left'];
+                if (bucketMesh && bucketMesh.userData.content && bucketMesh.userData.volumeUsed > 0) {
+                    this.wetTool(rightTool, bucketMesh.userData.content, bucketMesh.userData);
+                } else {
+                    this.showHintText("Ведро в левой руке пустое");
+                }
+            }
+        },
+
+        fillBucketAtSink: function (sink) {
+            var data = window.GameData; var bucket = this.getBucketMesh();
             if (!bucket) { this.showHintText("Возьми ведро в руки"); return; }
             var ud = bucket.userData;
             if (ud.volumeUsed >= ud.volume) { this.showHintText("Ведро уже полно"); return; }
-            ud.volumeUsed = ud.volume;
-            ud.content = 'water';
+            ud.volumeUsed = ud.volume; ud.content = 'water';
             this.showHintText("Ведро наполнено (" + ud.volume + "л)");
             data.addHistory("Ведро наполнено водой: " + ud.volume + " л");
             this.renderHeldItems();
         },
 
         pourCanisterIntoBucket: function (can, userData) {
-            var data = window.GameData;
-            var bucket = this.getBucketMesh();
+            var data = window.GameData; var bucket = this.getBucketMesh();
             if (!bucket) { this.showHintText("Возьми ведро в руки"); return; }
-            var bud = bucket.userData;
-            var kind = userData.type === 'glue_can' ? 'glue' : 'primer';
+            var bud = bucket.userData; var kind = userData.type === 'glue_can' ? 'glue' : 'primer';
             if (bud.content && bud.content !== kind) { this.showHintText("В ведре уже другое содержимое"); return; }
-            var room = bud.volume - bud.volumeUsed;
-            var amount = Math.min(userData.volume || 5, room);
+            var room = bud.volume - bud.volumeUsed; var amount = Math.min(userData.volume || 5, room);
             if (amount <= 0) { this.showHintText("Ведро полно"); return; }
             bud.volumeUsed += amount; bud.content = kind; userData.volume -= amount;
-            if (userData.volume <= 0) {
-                window.GameRenderer.scene.remove(can);
-                var idx = window.GameRenderer.interactableObjects.indexOf(can);
-                if (idx !== -1) window.GameRenderer.interactableObjects.splice(idx, 1);
-            }
+            if (userData.volume <= 0) { window.GameRenderer.scene.remove(can); var idx = window.GameRenderer.interactableObjects.indexOf(can); if (idx !== -1) window.GameRenderer.interactableObjects.splice(idx, 1); }
             this.showHintText(kind === 'glue' ? "Клей перелит в ведро" : "Грунтовка перелита в ведро");
             data.addHistory("Перелито в ведро: " + amount + " л (" + kind + ")");
             this.renderHeldItems();
@@ -267,32 +299,16 @@ js/game.js
         cutWallpaperPiece: function (roll) {
             var data = window.GameData;
             if (!data.handWith('knife')) { this.showHintText("Нужен нож"); return; }
+            if (data.wallpaperRollMeters < 2.7) { this.showHintText("Рулон слишком короткий"); return; }
             var piece = window.GameRenderer.createCutWallpaperPiece(roll.position.x, roll.position.z);
             if (!piece) return;
-            data.addHistory("Отрезан кусок обоев");
-            this.showHintText("Кусок обоев отрезан (1 × 2.7 м)");
+            data.wallpaperRollMeters -= 2.7;
+            data.addHistory("Отрезан кусок обоев (2.7 м). Осталось: " + data.wallpaperRollMeters + " м");
+            this.showHintText("Кусок обоев отрезан. Осталось: " + data.wallpaperRollMeters + " м");
         },
 
         getBucketMesh: function () { var side = window.GameData.handWith('bucket'); return side ? window.GameRenderer.heldToolMeshes[side] : null; },
         showHintText: function (text) { window.GameData.ui.currentHint = text; window.GameData.ui.hintVisible = true; this.renderHint(); },
-
-        chargeRollerFromBucket: function (bucket) {
-            var data = window.GameData;
-            var ud = bucket.userData;
-            if (!ud.content || ud.volumeUsed <= 0) { this.showHintText("Ведро пустое"); return; }
-            data.rollerState = ud.content;
-            ud.volumeUsed = Math.max(0, ud.volumeUsed - 0.5);
-            this.showHintText("Валик заряжен: " + ud.content);
-            data.addHistory("Валик заряжен из ведра: " + ud.content);
-            this.renderHeldItems();
-        },
-
-        measureWall: function () {
-            if (!this.lastHit) { this.showHintText("Наведи на стену"); return; }
-            var dist = this.lastHit.distance.toFixed(2);
-            this.showHintText("Расстояние до стены: " + dist + " м");
-            window.GameData.addHistory("Замер рулеткой: " + dist + " м");
-        },
 
         emptyDustpanIntoBag: function () {
             var data = window.GameData;
@@ -306,8 +322,7 @@ js/game.js
         },
 
         removeDebris: function (obj) {
-            var renderer = window.GameRenderer;
-            renderer.scene.remove(obj);
+            var renderer = window.GameRenderer; renderer.scene.remove(obj);
             var idx = renderer.debrisObjects.indexOf(obj); if (idx !== -1) renderer.debrisObjects.splice(idx, 1);
             var iIdx = renderer.interactableObjects.indexOf(obj); if (iIdx !== -1) renderer.interactableObjects.splice(iIdx, 1);
         },
@@ -322,26 +337,20 @@ js/game.js
         
         pickUpBag: function () {
             var bag = window.GameRenderer.trashBag; if (!bag) return;
-            var data = window.GameData;
-            var side = data.giveItemToHand('trashBag');
+            var data = window.GameData; var side = data.giveItemToHand('trashBag');
             if (!side) { window.GameData.ui.currentHint = "Руки заняты, сначала освободи"; window.GameData.ui.hintVisible = true; this.renderHint(); return; }
             bag.userData.isCarried = true; bag.userData.carriedSide = side; data.trashBagPosition = null;
-            this.removeFromInteractables(bag);
-            data.addHistory("Мешок взят в " + (side === 'right' ? 'правую' : 'левую') + " руку");
-            this.updateHandsUI();
+            this.removeFromInteractables(bag); data.addHistory("Мешок взят в " + (side === 'right' ? 'правую' : 'левую') + " руку"); this.updateHandsUI();
         },
 
         dropBagHere: function () {
             var bag = window.GameRenderer.trashBag;
             if (bag && bag.userData.carriedSide) { window.GameData.freeHand(bag.userData.carriedSide); bag.userData.carriedSide = null; }
-            window.GameRenderer.dropTrashBag();
-            window.GameData.addHistory("Мешок поставлен на пол");
-            this.updateHandsUI();
+            window.GameRenderer.dropTrashBag(); window.GameData.addHistory("Мешок поставлен на пол"); this.updateHandsUI();
         },
 
         emptyBagAtExit: function () {
-            var data = window.GameData;
-            data.trashCount = 0; data.addHistory("Мусор вынесен в мешке"); this.renderTrash();
+            var data = window.GameData; data.trashCount = 0; data.addHistory("Мусор вынесен в мешке"); this.renderTrash();
             window.GameData.ui.currentHint = "Мусор вынесен!"; window.GameData.ui.hintVisible = true; this.renderHint();
         },
 
@@ -370,8 +379,7 @@ js/game.js
             collectNear(renderer.debrisObjects, point); collectNear(renderer.interactableObjects, point);
             if (found.length < 3) return false;
             if (data.dustpanFill >= data.dustpanMax) { window.GameData.ui.currentHint = "Совок полон, вытряхни в мешок"; window.GameData.ui.hintVisible = true; this.renderHint(); return true; }
-            var spaceInDustpan = data.dustpanMax - data.dustpanFill;
-            var take = Math.min(spaceInDustpan, found.length);
+            var spaceInDustpan = data.dustpanMax - data.dustpanFill; var take = Math.min(spaceInDustpan, found.length);
             for (var j = 0; j < take; j++) {
                 var piece = found[j]; renderer.scene.remove(piece);
                 var dIdx = renderer.debrisObjects.indexOf(piece); if (dIdx !== -1) renderer.debrisObjects.splice(dIdx, 1);
@@ -413,6 +421,16 @@ js/game.js
             var leftText = bagCarried ? 'пусто' : label(data.leftHand);
             var text = 'Правая: ' + rightText + '\nЛевая: ' + leftText;
             if (data.handWith('dustpan')) text += '\n🥄 Совок: ' + data.dustpanFill + '/' + data.dustpanMax;
+            var bucketSide = data.handWith('bucket');
+            if (bucketSide) {
+                var bucketMesh = window.GameRenderer.heldToolMeshes[bucketSide];
+                if (bucketMesh && bucketMesh.userData) {
+                    var vol = bucketMesh.userData.volumeUsed || 0;
+                    var content = bucketMesh.userData.content || 'пустое';
+                    var contentName = content === 'water' ? 'вода' : (content === 'primer' ? 'грунтовка' : (content === 'glue' ? 'клей' : 'пустое'));
+                    text += '\n🪣 Ведро: ' + vol + '/10 л (' + contentName + ')';
+                }
+            }
             window.GameRenderer.showHeldItem(text);
         },
 
@@ -448,8 +466,7 @@ js/game.js
             if (len > 0) {
                 var step = data.player.speed * delta; mx = (mx / len) * step; mz = (mz / len) * step;
                 var newX = cam.position.x + mx, newZ = cam.position.z + mz;
-                var halfW = data.world.roomWidth / 2 - this.playerRadius;
-                var halfD = data.world.roomDepth / 2 - this.playerRadius;
+                var halfW = data.world.roomWidth / 2 - this.playerRadius; var halfD = data.world.roomDepth / 2 - this.playerRadius;
                 if (newX < -halfW) newX = -halfW; if (newX > halfW) newX = halfW;
                 if (newZ < -halfD) newZ = -halfD; if (newZ > halfD) newZ = halfD;
                 cam.position.x = newX; cam.position.z = newZ;
@@ -521,7 +538,7 @@ js/game.js
                 var inHands = (data.rightHand === key || data.leftHand === key);
                 parts.push(inHands ? '<span class="tool-active">' + text + '</span>' : '<span class="tool-inactive">' + text + '</span>');
             }
-            this.toolsPanelEl.innerHTML = parts.join(" | ") + '<br>E — взять/положить | Q — положить предмет';
+            this.toolsPanelEl.innerHTML = parts.join(" | ") + '<br>E — взять/положить | Q — положить | R — смочить инструмент';
         },
 
         updateStamina: function (delta) {
@@ -539,19 +556,23 @@ js/game.js
             var delta = window.GameRenderer.clock.getDelta();
             if (delta > 0.1) delta = 0.1;
             this.updateMovement(delta); this.updateStamina(delta);
-            window.GameRenderer.camera.rotation.y = this.yaw;
-            window.GameRenderer.camera.rotation.x = this.pitch;
-            window.GameRenderer.updateHeldTools();
-            this.updateCarriedBag();
+            window.GameRenderer.camera.rotation.y = this.yaw; window.GameRenderer.camera.rotation.x = this.pitch;
+            window.GameRenderer.updateHeldTools(); this.updateCarriedBag();
             if (this.sweeping) {
                 this.sweepWithBroom(delta);
                 if (window.GameData.handWith('dustpan')) this.sweepDustpanAtAim(delta);
             }
-            window.GameRenderer.updateDebris(delta);
-            window.GameRenderer.applyGravityToTools(delta);
-            window.GameRenderer.updateBagVisual();
-            this.updateRaycast();
-            window.GameRenderer.render();
+            window.GameRenderer.updateDebris(delta); window.GameRenderer.applyGravityToTools(delta); window.GameRenderer.updateBagVisual();
+            var data = window.GameData;
+            if (data.toolWetUntil > 0 && Date.now() > data.toolWetUntil) {
+                data.toolWetUntil = 0;
+                if (data.rollerState) {
+                    data.rollerState = null;
+                    data.addHistory("Валик высох");
+                    this.renderHeldItems();
+                }
+            }
+            this.updateRaycast(); window.GameRenderer.render();
         }
     };
     window.GameLogic.init();
