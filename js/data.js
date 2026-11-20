@@ -1,4 +1,4 @@
-/* ==========================================
+﻿/* ==========================================
 js/data.js
 Глобальное состояние игры (GameState).
 ========================================== */
@@ -15,16 +15,15 @@ js/data.js
         rightHand: null, leftHand: null,
         dustpanFill: 0, dustpanMax: 50,
         rollerState: null,
+
+        wallpaperRollMeters: 10,
+        glueLiters: 5,
+        primerLiters: 5,
+
         toolWetUntil: 0,
+        wetItems: {},
         rustLevel: 0,
-        
-        // ==========================================
-        // Остатки материалов
-        // ==========================================
-        wallpaperRollMeters: 10, // погонных метров в рулоне
-        glueLiters: 5,           // литров в канистре клея
-        primerLiters: 5,         // литров в канистре грунтовки
-        
+
         giveItemToHand: function (itemName, preferredSide) {
             var first = preferredSide === 'left' ? 'left' : 'right';
             var second = first === 'right' ? 'left' : 'right';
